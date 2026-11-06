@@ -1,0 +1,112 @@
+// Motor Clube CDC — schema do banco.
+// Etapa 1 (Base): lojas, usuários internos, sessões, auditoria e parâmetros com vigência.
+// As demais entidades da SPEC seção 5 entram nas etapas seguintes, cada uma com sua migração.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum InternalRole {
+  ADMIN
+  CHANNEL_MANAGER
+  CASHIER
+}
+
+/// Loja (SPEC 5). `code` é o identificador estável usado em parâmetros (ex.: enabled_store_ids = ["L1"]).
+model Store {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  /// CNPJ normalizado (14 posições, maiúsculas, sem pontuação).
+  cnpj      String   @unique
+  isPilot   Boolean  @default(false) @map("is_pilot")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  users InternalUser[]
+
+  @@map("store")
+}
+
+/// Usuário interno (SPEC 3 e 5).
+model InternalUser {
+  id                    String       @id @default(uuid()) @db.Uuid
+  name                  String
+  /// E-mail sempre em minúsculas.
+  email                 String       @unique
+  role                  InternalRole
+  storeId               String?      @map("store_id") @db.Uuid
+  store                 Store?       @relation(fields: [storeId], references: [id])
+  /// Gerente de canal responsável (para vendedores e operadores).
+  channelManagerId      String?      @map("channel_manager_id") @db.Uuid
+  channelManager        InternalUser? @relation("ChannelManager", fields: [channelManagerId], references: [id])
+  managedUsers          InternalUser[] @relation("ChannelManager")
+  passwordHash          String       @map("password_hash")
+  active                Boolean      @default(true)
+  failedLoginAttempts   Int          @default(0) @map("failed_login_attempts")
+  lockedUntil           DateTime?    @map("locked_until") @db.Timestamptz(3)
+  createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions          Session[]
+  parameterVersions ParameterVersion[]
+  auditEntries      AuditLog[]
+
+  @@map("internal_user")
+}
+
+/// Sessão de usuário interno. Guardamos só o hash do token.
+model Session {
+  id        String       @id @default(uuid()) @db.Uuid
+  tokenHash String       @unique @map("token_hash")
+  userId    String       @map("user_id") @db.Uuid
+  user      InternalUser @relation(fields: [userId], references: [id])
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime     @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime?    @map("revoked_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("session")
+}
+
+/// Auditoria (regra inviolável 8): quem, o quê, antes, depois e quando. Só inserção — trigger bloqueia UPDATE e DELETE.
+model AuditLog {
+  id        BigInt        @id @default(autoincrement())
+  /// Usuário interno que fez a ação; nulo quando a ação é de um job ou do sistema.
+  userId    String?       @map("user_id") @db.Uuid
+  user      InternalUser? @relation(fields: [userId], references: [id])
+  /// "user", "job:<nome>" ou "system".
+  actor     String
+  action    String
+  entity    String
+  entityId  String        @map("entity_id")
+  before    Json?
+  after     Json?
+  reason    String?
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@map("audit_log")
+}
+
+/// Versão de parâmetro (SPEC 4). Imutável: mudança cria nova versão com início de vigência.
+model ParameterVersion {
+  id          String        @id @default(uuid()) @db.Uuid
+  key         String
+  value       Json
+  validFrom   DateTime      @map("valid_from") @db.Timestamptz(3)
+  createdById String?       @map("created_by_id") @db.Uuid
+  createdBy   InternalUser? @relation(fields: [createdById], references: [id])
+  note        String?
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([key, validFrom])
+  @@index([key, validFrom(sort: Desc)])
+  @@map("parameter_version")
+}

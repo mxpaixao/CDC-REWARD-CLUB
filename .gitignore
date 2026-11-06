@@ -1,0 +1,11 @@
+node_modules/
+.next/
+next-env.d.ts
+src/generated/
+.env
+.env.*.local
+coverage/
+*.log
+# XMLs brutos e exportações nunca vão para o repositório
+var/
+tsconfig.tsbuildinfo

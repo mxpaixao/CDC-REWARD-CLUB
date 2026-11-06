@@ -1,2 +1,89 @@
-# CDC-REWARD-CLUB
-PROGRAMA DE FIDELIDADE CDC
+# Motor Clube CDC
+
+Motor próprio do programa de fidelidade **Clube CDC** da Casa das Correias: regras, saldos em ledger,
+códigos de indicação, leitura das notas fiscais do SHX/GIX e os painéis de operação.
+
+- Regra de negócio: [`docs/SPEC-fase-1.md`](docs/SPEC-fase-1.md) — em caso de dúvida, a SPEC manda.
+- Instruções de trabalho e regras invioláveis: [`CLAUDE.md`](CLAUDE.md).
+
+## Situação
+
+Fase 1 (piloto do trilho Prestador), construída por etapas (SPEC seção 11).
+
+| Etapa | Situação |
+| --- | --- |
+| 1. Base | **concluída** |
+| 2. Cadastros auxiliares | próxima |
+| 3–11 | pendentes |
+
+Os 24 critérios de aceite da SPEC seção 10 já estão em `tests/acceptance/criterios-secao-10.test.ts`
+como pendentes, cada um marcado com a etapa que o fecha.
+
+## Como rodar
+
+Requisitos: Node.js 26 LTS e Docker (ou um PostgreSQL 16+ local).
+
+```bash
+cp .env.example .env
+docker compose up -d db
+npm install
+npm run db:migrate
+npm run db:seed
+npm run dev
+```
+
+Acesse http://localhost:3000 e entre com um dos usuários sintéticos — a senha é o `SEED_PASSWORD` do `.env`:
+
+| E-mail | Perfil |
+| --- | --- |
+| `admin@exemplo.test` | Admin |
+| `gerente@exemplo.test` | Gerente de canal |
+| `caixa@exemplo.test` | Operador de caixa (loja piloto sintética L1) |
+
+Para subir tudo em contêineres (banco, migração e app): `docker compose up -d --build`.
+
+## Testes
+
+```bash
+npm test                  # tudo
+npm run test:unit         # domínio, sem banco
+npm run test:integration  # com banco: apaga e recria TEST_DATABASE_URL (precisa terminar em _test)
+```
+
+## O que a etapa 1 entrega
+
+- **Projeto:** Next.js 16 + TypeScript, Prisma 7 + PostgreSQL, Vitest, Docker Compose.
+- **Dinheiro** (`src/domain/money.ts`): centavos inteiros, percentuais em decimal, arredondamento
+  meio para cima (R5.5) e para baixo (R8.2) explícitos; float é rejeitado.
+- **CPF e CNPJ** (`src/domain/document.ts`): validação de dígitos, inclusive CNPJ alfanumérico
+  (IN RFB 2.229/2024), normalização e máscara `***.456.789-**`.
+- **Datas de negócio** (`src/domain/business-time.ts`): tudo em America/Manaus.
+- **Parâmetros com vigência** (`src/domain/params`, `src/application/parameters.ts`): os 26 parâmetros
+  da SPEC seção 4 (com as decisões de 06/11/2026), validados por esquema; mudança só por nova versão,
+  nunca retroativa, só Admin, auditada. API: `GET/POST /api/parameters`.
+- **Login de usuários internos** (`src/application/auth.ts`): e-mail e senha (scrypt), sessão com token
+  guardado só como hash, bloqueio temporário após tentativas erradas.
+- **Perfis e permissões** (`src/domain/auth/roles.ts`): Admin, Gerente de canal e Operador de caixa (SPEC seção 3).
+- **Auditoria** (`src/application/audit.ts`): quem, o quê, antes, depois e quando, na mesma transação da
+  mudança; a tabela só aceita inserção (trigger no banco), assim como as versões de parâmetro.
+- **Logs** (`src/infra/log/logger.ts`): JSON por linha, CPF e CNPJ mascarados automaticamente.
+- **Dados sintéticos** (`src/synthetic`): gerador determinístico de CPF, CNPJ, nomes e telefones;
+  personas dos critérios de aceite (Carlos, Ana, Bruno); 4 lojas sintéticas com L1 como piloto.
+- **Saúde:** `GET /api/health` para o monitoramento.
+
+## Estrutura
+
+```
+src/
+  domain/        regras puras, sem banco nem rede
+  application/   casos de uso: transação, permissão, auditoria
+  infra/         banco (Prisma), log, segurança, configuração
+  app/           Next.js: telas e rotas de API
+  synthetic/     geradores de dados sintéticos e seed
+prisma/          schema, migrações e seed
+tests/
+  unit/          domínio
+  integration/   com banco
+  acceptance/    critérios da SPEC seção 10
+docs/            SPEC
+```

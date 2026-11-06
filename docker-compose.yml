@@ -1,0 +1,50 @@
+# Ambiente local do Motor Clube CDC.
+#   docker compose up -d db          → só o banco (para rodar o app com npm run dev)
+#   docker compose up -d --build     → banco + app
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: clube
+      POSTGRES_PASSWORD: clube
+      POSTGRES_DB: clube
+      TZ: America/Manaus
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clube -d clube"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build:
+      context: .
+      target: deps
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://clube:clube@db:5432/clube
+    command: npx prisma migrate deploy
+
+  app:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://clube:clube@db:5432/clube
+      SESSION_TTL_HOURS: 12
+      LOGIN_MAX_ATTEMPTS: 5
+      LOGIN_LOCK_MINUTES: 15
+      PUBLIC_BASE_URL: http://localhost:3000
+      LOG_LEVEL: info
+      TZ: America/Manaus
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
