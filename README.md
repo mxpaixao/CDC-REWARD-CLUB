@@ -13,8 +13,9 @@ Fase 1 (piloto do trilho Prestador), construída por etapas (SPEC seção 11).
 | Etapa | Situação |
 | --- | --- |
 | 1. Base | **concluída** |
-| 2. Cadastros auxiliares | próxima |
-| 3–11 | pendentes |
+| 2. Cadastros auxiliares | **concluída** |
+| 3. Notas | próxima |
+| 4–11 | pendentes |
 
 Os 24 critérios de aceite da SPEC seção 10 já estão em `tests/acceptance/criterios-secao-10.test.ts`
 como pendentes, cada um marcado com a etapa que o fecha.
@@ -31,6 +32,8 @@ npm run db:migrate
 npm run db:seed
 npm run dev
 ```
+
+O seed cria lojas, usuários, parâmetros, produtos e lista de exclusão, todos sintéticos.
 
 Acesse http://localhost:3000 e entre com um dos usuários sintéticos — a senha é o `SEED_PASSWORD` do `.env`:
 
@@ -71,6 +74,21 @@ npm run test:integration  # com banco: apaga e recria TEST_DATABASE_URL (precisa
   personas dos critérios de aceite (Carlos, Ana, Bruno); 4 lojas sintéticas com L1 como piloto.
 - **Saúde:** `GET /api/health` para o monitoramento.
 
+## O que a etapa 2 entrega
+
+- **Importação por CSV** de lojas, produtos com margem e lista de exclusão — layouts e regras em
+  [`docs/importacao-csv.md`](docs/importacao-csv.md). Linha de comando (`npm run import:csv`) e API
+  (`POST /api/imports/csv`, `GET /api/imports`), só para Admin.
+- **Lote de importação** com lidas, novas, atualizadas, sem mudança, removidas e erros por linha;
+  gravação atômica; simulação sem gravar; reimportação idempotente; auditoria de cada mudança.
+- **Faixa de margem** (`src/domain/margin-band.ts`) calculada pelo parâmetro `band_min_margin_pct`.
+- **Lista de exclusão com histórico** de períodos (`src/application/exclusion-list.ts`): responde se um
+  documento estava na lista numa data; modos incremental e completo por origem; período encerrado é
+  imutável no banco.
+- **Seed** agora carrega também produtos (P-A, P-B, P-C, P-D dos critérios + 50 sorteados) e a lista
+  de exclusão sintética.
+- O relatório **"itens sem faixa"** depende dos itens de nota e entra na etapa 3.
+
 ## Estrutura
 
 ```
@@ -81,9 +99,10 @@ src/
   app/           Next.js: telas e rotas de API
   synthetic/     geradores de dados sintéticos e seed
 prisma/          schema, migrações e seed
+scripts/         linha de comando (importar CSV, gerar CSVs sintéticos)
 tests/
   unit/          domínio
   integration/   com banco
   acceptance/    critérios da SPEC seção 10
-docs/            SPEC
+docs/            SPEC e layouts de importação
 ```

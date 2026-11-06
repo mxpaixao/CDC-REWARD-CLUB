@@ -56,6 +56,7 @@ model InternalUser {
   sessions          Session[]
   parameterVersions ParameterVersion[]
   auditEntries      AuditLog[]
+  importBatches     ImportBatch[]
 
   @@map("internal_user")
 }
@@ -109,4 +110,99 @@ model ParameterVersion {
   @@unique([key, validFrom])
   @@index([key, validFrom(sort: Desc)])
   @@map("parameter_version")
+}
+
+// ---------------------------------------------------------------------------
+// Etapa 2 — Cadastros auxiliares
+// ---------------------------------------------------------------------------
+
+enum ImportType {
+  XML
+  PRODUCTS
+  EXCLUSIONS
+  STORES
+}
+
+enum ImportStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// Lote de importação (SPEC 5): tipo, arquivo, início, fim, totais e erros.
+model ImportBatch {
+  id          String       @id @default(uuid()) @db.Uuid
+  type        ImportType
+  fileName    String       @map("file_name")
+  /// SHA-256 do conteúdo, para rastrear reimportações do mesmo arquivo.
+  fileSha256  String       @map("file_sha256")
+  /// "incremental" ou "completo" (lista de exclusão).
+  mode        String       @default("incremental")
+  status      ImportStatus @default(RUNNING)
+  startedAt   DateTime     @map("started_at") @db.Timestamptz(3)
+  finishedAt  DateTime?    @map("finished_at") @db.Timestamptz(3)
+  /// { lidas, novas, atualizadas, semMudanca, removidas, erros, ... }
+  totals      Json         @default("{}")
+  /// [{ linha, mensagem }] — sem CPF ou CNPJ em claro.
+  errors      Json         @default("[]")
+  createdById String?      @map("created_by_id") @db.Uuid
+  createdBy   InternalUser? @relation(fields: [createdById], references: [id])
+
+  products   Product[]
+  exclusions ExclusionEntry[]
+
+  @@index([type, startedAt(sort: Desc)])
+  @@map("import_batch")
+}
+
+enum MarginBand {
+  A
+  B
+  C
+  D
+}
+
+/// Produto (SPEC 5). A faixa guardada aqui é a calculada na última importação do cadastro,
+/// para consulta; a faixa que vale para o crédito é congelada no item da nota (R5.2).
+model Product {
+  id                String       @id @default(uuid()) @db.Uuid
+  /// cProd do XML.
+  code              String       @unique
+  description       String
+  category          String?
+  /// Margem bruta em %, decimal exato.
+  marginPct         Decimal      @map("margin_pct") @db.Decimal(9, 4)
+  band              MarginBand
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime     @map("updated_at") @db.Timestamptz(3)
+  lastImportBatchId String?      @map("last_import_batch_id") @db.Uuid
+  lastImportBatch   ImportBatch? @relation(fields: [lastImportBatchId], references: [id])
+
+  @@map("product")
+}
+
+enum ExclusionReason {
+  B2B_NEGOTIATED
+  EMPLOYEE
+  OTHER
+}
+
+/// Lista de exclusão (SPEC 5, R1.2, R3.2, R5.4, R5.8). Cada linha é um período em que o documento
+/// esteve na lista: [addedAt, removedAt). Só um período aberto por documento (índice parcial na migração).
+model ExclusionEntry {
+  id                String          @id @default(uuid()) @db.Uuid
+  document          String
+  documentType      String          @map("document_type")
+  reason            ExclusionReason
+  /// Origem da informação (ex.: "RH", "SHX-B2B", "manual").
+  source            String
+  addedAt           DateTime        @map("added_at") @db.Timestamptz(3)
+  removedAt         DateTime?       @map("removed_at") @db.Timestamptz(3)
+  updatedAt         DateTime        @map("updated_at") @db.Timestamptz(3)
+  lastImportBatchId String?         @map("last_import_batch_id") @db.Uuid
+  lastImportBatch   ImportBatch?    @relation(fields: [lastImportBatchId], references: [id])
+
+  @@index([document])
+  @@index([source])
+  @@map("exclusion_entry")
 }

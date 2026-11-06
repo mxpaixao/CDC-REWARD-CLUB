@@ -45,17 +45,26 @@ function actorLabel(actor: Actor): string {
   }
 }
 
+function auditRow(input: AuditInput) {
+  return {
+    userId: input.actor.kind === "user" ? input.actor.user.id : null,
+    actor: actorLabel(input.actor),
+    action: input.action,
+    entity: input.entity,
+    entityId: input.entityId,
+    before: (toAuditJson(input.before) ?? undefined) as never,
+    after: (toAuditJson(input.after) ?? undefined) as never,
+    reason: input.reason ?? null,
+  };
+}
+
 export async function recordAudit(db: DbOrTx, input: AuditInput): Promise<void> {
-  await db.auditLog.create({
-    data: {
-      userId: input.actor.kind === "user" ? input.actor.user.id : null,
-      actor: actorLabel(input.actor),
-      action: input.action,
-      entity: input.entity,
-      entityId: input.entityId,
-      before: (toAuditJson(input.before) ?? undefined) as never,
-      after: (toAuditJson(input.after) ?? undefined) as never,
-      reason: input.reason ?? null,
-    },
-  });
+  await db.auditLog.create({ data: auditRow(input) });
+}
+
+/** Vários registros de uma vez (importações grandes), em blocos. */
+export async function recordAuditMany(db: DbOrTx, inputs: readonly AuditInput[], chunkSize = 1000): Promise<void> {
+  for (let i = 0; i < inputs.length; i += chunkSize) {
+    await db.auditLog.createMany({ data: inputs.slice(i, i + chunkSize).map(auditRow) });
+  }
 }

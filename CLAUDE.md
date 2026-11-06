@@ -103,6 +103,8 @@ Copie `.env.example` para `.env` antes de tudo.
 | Todos os testes | `npm test` |
 | Só testes de unidade | `npm run test:unit` |
 | Só testes com banco | `npm run test:integration` (usa `TEST_DATABASE_URL`, apagado a cada execução) |
+| Gerar CSVs sintéticos (lojas, produtos, exclusão) | `npm run synthetic:csv` → `var/synthetic/` |
+| Importar CSV auxiliar | `npm run import:csv -- --tipo lojas\|produtos\|exclusao --arquivo <csv> --usuario <e-mail admin> [--modo completo --origem RH] [--simular]` |
 | Checagem de tipos | `npm run typecheck` |
 | Build de produção | `npm run build` |
 
