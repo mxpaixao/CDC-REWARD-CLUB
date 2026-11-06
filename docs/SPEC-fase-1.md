@@ -1,6 +1,6 @@
 # SPEC — Motor Clube CDC · Fase 1 (piloto do prestador)
 
-Versão 0.2 · 06/11/2026 (decisões da seção 13 incorporadas) · Dono do produto: Diretoria Comercial da CDC · Execução: CPD da CDC com Claude Code
+Versão 0.3 · 06/11/2026 (decisões da seção 13 incorporadas) · Dono do produto: Diretoria Comercial da CDC · Execução: CPD da CDC com Claude Code
 
 ## 1. Objetivo
 
@@ -25,6 +25,8 @@ Critério de saída da Fase 1 (gate G2 do roadmap): três meses de operação co
 - Portal do prestador, painel do caixa e painel de gestão com relatórios e exportações.
 - Outbox de notificações com adapter de log.
 - Exportação diária dos prestadores ativos para o SHX vincular a tabela de preço Profissional.
+- Perfil profissional do prestador: profissões de uma lista padronizada (mais de uma, com a principal), profissão regulamentada e registro no conselho, certificações (declaradas ou verificadas), áreas de atendimento e consentimento separado para aparecer na vitrine futura (CDC Indica). Na Fase 1 esses dados não aparecem em página pública.
+- Aba Capacitação no portal do prestador: trilhas de vídeos e aulas cadastradas pela gestão, com marcação de assistido.
 
 **Fora:**
 
@@ -33,6 +35,7 @@ Critério de saída da Fase 1 (gate G2 do roadmap): três meses de operação co
 - Acúmulo de bônus para clientes CPF. Na Fase 1, o cliente indicado só ganha o desconto de boas-vindas.
 - App nativo e qualquer integração com a Fidelimax.
 - Cálculo do preço da tabela meio de campo. Ela é mantida no SHX; o motor só informa quem está ativo.
+- CDC Indica (vitrine pública de prestadores, Fase 2) e CDC Serviços (serviços próprios da CDC, Fase 3). Ver seção 14.
 
 ## 3. Perfis e permissões
 
@@ -89,7 +92,12 @@ O Claude Code pode detalhar tabelas e índices; estes são os conceitos e campos
 | Loja | nome, CNPJ, se é piloto |
 | Usuário interno | nome, e-mail, perfil, loja, gerente de canal responsável |
 | Participante | tipo (cliente ou prestador), documento (só dígitos, único), tipo de documento, nome, telefone, nascimento, situação, aceite do regulamento (versão, data, canal), consentimento de ofertas (sim/não, data) |
-| Perfil do prestador | profissão, tipo de comprovação, observação, vendedor responsável, gerente de canal, aprovado por e quando, código de indicação (único), nível e data do nível, última atividade, situação (pendente, ativo, suspenso, inativo), próxima revalidação |
+| Perfil do prestador | profissões (da lista padronizada, uma principal), tipo de comprovação, observação, vendedor responsável, gerente de canal, aprovado por e quando, código de indicação (único), nível e data do nível, última atividade, situação (pendente, ativo, suspenso, inativo), próxima revalidação, apresentação e foto (opcionais), consentimento de vitrine (sim/não, data, versão do termo) |
+| Profissão (catálogo) | nome, se é regulamentada, conselho de registro exigido (CREA, CFT/CRT, CAU ou nenhum), ativa |
+| Certificação do prestador | prestador, tipo (registro em conselho, NR-10, NR-35, curso técnico ou livre, certificação de fabricante, outro), emissor, número ou identificador, emissão, validade, situação (declarada, verificada, recusada, vencida), verificado por e quando, anexo opcional |
+| Área de atendimento | prestador, município, zona ou bairro (lista padronizada para Manaus) |
+| Conteúdo de capacitação | trilha, título, descrição, endereço do vídeo, duração, ordem, publicado (sim/não), criado por |
+| Progresso de capacitação | prestador, conteúdo, concluído em |
 | Vínculo de indicação | prestador, cliente, início, fim (exclusivo), motivo de encerramento (vencido, substituído, cancelado), origem (caixa, link), criado por |
 | Desconto de boas-vindas | cliente (único), prestador, loja, operador, valor da compra informado, valor esperado, valor encontrado na nota, situação da conciliação |
 | Produto | código (`cProd`), descrição, categoria, margem bruta %, faixa, atualizado em |
@@ -124,6 +132,9 @@ Saldos derivados, nunca armazenados como campo editável:
 - **R1.4** Situações: pendente → ativo (aprovação do gerente de canal); ativo ↔ suspenso (gerente, com motivo); ativo → inativo (R10.4); inativo → ativo (gerente).
 - **R1.5** Na aprovação: gerar o código (R2), definir nível Profissional, registrar vendedor e gerente responsáveis, enfileirar a mensagem de boas-vindas com código e link.
 - **R1.6** Revalidação: ao completar `revalidation_days` desde a aprovação, o prestador entra na fila de revalidação; sem revalidação em `revalidation_grace_days`, fica suspenso.
+- **R1.7** Perfil profissional: ao menos uma profissão da lista padronizada, uma marcada como principal. Profissão regulamentada (ex.: engenheiro — CREA; técnico industrial — CFT/CRT; arquiteto — CAU) exige o número de registro no conselho, que também pode servir de comprovação da R1.3.
+- **R1.8** Certificações (NR-10, NR-35, cursos, certificações de fabricante e outras) são declaradas pelo prestador ou registradas pela gestão; só a gestão marca como verificada, com quem e quando. Certificação vencida deixa de valer como verificada. Só certificação verificada pode virar selo em tela pública futura.
+- **R1.9** Consentimento de vitrine (aparecer no CDC Indica) é separado do aceite do regulamento e do consentimento de ofertas, começa desmarcado e pode ser revogado a qualquer momento (R13.1). Na Fase 1 é só registrado.
 
 ### 6.2 Código de indicação
 
@@ -288,6 +299,8 @@ Regras de importação:
 - Código, link, QR e botão de compartilhar no WhatsApp.
 - Clientes vinculados, conforme R13.2.
 - Nível atual, volume de 90 dias e quanto falta para o próximo nível.
+- Perfil profissional: profissões, áreas de atendimento, certificações (declarar e ver a situação) e consentimento de vitrine.
+- Aba Capacitação: trilhas, vídeos e aulas publicados pela gestão, com marcação de assistido. Vídeo hospedado fora do motor (ex.: YouTube não listado) e leve para celular.
 
 ### 8.4 Painel de gestão
 
@@ -295,6 +308,7 @@ Regras de importação:
 - Prestadores: filtros por loja, vendedor, gerente, nível e situação; ficha com histórico e auditoria.
 - Parâmetros com vigência.
 - Importações: lotes, erros e itens sem faixa; importação de CSVs auxiliares.
+- Catálogo de profissões, verificação de certificações e conteúdos de capacitação (cadastro, ordem, publicação e quem assistiu).
 - Relatórios com exportação CSV: receita indicada por prestador e por vendedor; bônus gerado, liberado, resgatado, vencido, retido e a vencer (passivo do programa); prestadores ativos por nível; percentual de vendas identificadas na loja piloto; percentis de volume para os limites de nível.
 
 ## 9. Jobs
@@ -351,12 +365,12 @@ Cada etapa termina com testes passando e o README atualizado.
 2. **Cadastros auxiliares:** importação por CSV de lojas, produtos com margem e faixa, lista de exclusão; relatório de itens sem faixa.
 3. **Notas:** gerador de XMLs sintéticos, importador idempotente, cancelamentos, devoluções, lotes e erros. Critério 19.
 4. **Motor e ledger:** acúmulo, carência, teto e retenção, validade, FIFO, estornos e venda a prazo. Critérios 1 a 4, 11 a 13, 15, 16 e 24.
-5. **Prestadores:** cadastro, aprovação, código, suspensão, revalidação, níveis e inatividade. Critérios 21 e 22.
+5. **Prestadores:** cadastro, aprovação, código, suspensão, revalidação, níveis e inatividade; perfil profissional (profissões, regulamentação, certificações, áreas de atendimento e consentimento de vitrine). Critérios 21 e 22.
 6. **Vínculos:** painel do caixa e página pública, bloqueios, renovação, troca, alertas, retroativo e boas-vindas. Critérios 5 a 10, 20 e 23.
 7. **Resgate:** reserva, cancelamento, conciliação e expiração. Critérios 14, 17 e 18.
 8. **Jobs e outbox:** agendamentos da seção 9 e adapter de log.
-9. **Portal do prestador.**
-10. **Painel de gestão:** filas, relatórios, exportações e o CSV diário de ativos.
+9. **Portal do prestador**, com a aba Capacitação.
+10. **Painel de gestão:** filas, relatórios, exportações, o CSV diário de ativos, catálogo de profissões, verificação de certificações e conteúdos de capacitação.
 11. **Entrega ao CPD:** README de implantação, variáveis de ambiente, backup, monitoramento dos jobs e checklist de LGPD.
 
 ## 12. Questões em aberto
@@ -372,8 +386,13 @@ Cada etapa termina com testes passando e o README atualizado.
 | 7 | Baixa de títulos do SHX para liberar créditos de venda a prazo | Financeiro e CPD |
 | 8 | Validade do bônus devolvido por devolução de compra (proposta: 30 dias) | Comercial |
 | 9 | Textos do regulamento e da política de privacidade, com cláusulas completas de elegibilidade, bloqueio de prestador irregular (R2.5), direito de alterar critérios por vigência e LGPD | Jurídico |
-| 11 | Provedor de identidade para usuários internos (hoje e-mail e senha) | CPD |
 | 10 | Resgate como desconto incondicional na nota | Contabilidade |
+| 11 | Provedor de identidade para usuários internos (hoje e-mail e senha) | CPD |
+| 12 | Bônus de cliente que chegar pela vitrine do CDC Indica (sugestão: origem própria, taxa menor ou zero, conta para ranking e nível) | Comercial |
+| 13 | Responsabilidade da CDC pelo serviço de prestador indicado na vitrine (Código de Defesa do Consumidor, arts. 7º, 25 e 34) | Jurídico |
+| 14 | Modelo de ganho do CDC Indica (sugestão para começar: gratuito para o prestador, ganho na venda de material) | Comercial |
+| 15 | Hospedagem dos vídeos de capacitação e parcerias de conteúdo (fabricantes, SENAI-AM) | Comercial e CPD |
+| 16 | Pesquisa jurídica completa e elaboração dos documentos do programa, com especialista; escopo inicial na seção 15 | Diretoria e Jurídico |
 
 ## 13. Registro de decisões
 
@@ -398,4 +417,45 @@ Cada etapa termina com testes passando e o README atualizado.
 | 06/11/2026 | Um documento por participante na Fase 1, sem documento secundário (R1.1). |
 | 06/11/2026 | Programa pode mudar critérios a qualquer momento por nova versão de parâmetro, nunca retroativa; conceder bônus não é obrigação fora dos critérios vigentes (cláusula para o regulamento). |
 | 06/11/2026 | Etapa 2: lista de exclusão guardada como períodos (entrada e saída), para avaliar cada nota pela lista na data de emissão. Importação em dois modos: incremental (nunca remove) e completo por origem (remove quem é da mesma origem e não veio no arquivo). Produtos nunca são apagados. Relatório "itens sem faixa" entregue na etapa 3, junto com os itens de nota. Layouts em `docs/importacao-csv.md`. |
+| 06/11/2026 | Perfil profissional do prestador entra na etapa 5: profissões padronizadas, profissão regulamentada com registro no conselho, certificações declaradas ou verificadas, áreas de atendimento e consentimento de vitrine (R1.7 a R1.9). Sem exibição pública na Fase 1. |
+| 06/11/2026 | Aba Capacitação simples no portal do prestador (etapa 9), com gestão dos conteúdos no painel (etapa 10). O braço de capacitação evolui depois. |
+| 06/11/2026 | CDC Indica registrado como Fase 2 e CDC Serviços como Fase 3 (seção 14). |
+| 06/11/2026 | Frente jurídica: pesquisa completa e elaboração do regulamento, termos e contratos com apoio especializado (questão 16); escopo inicial na seção 15. |
 | 06/11/2026 | Adotados sem objeção: fim do vínculo por instante (início + 120 dias, mesma hora); validade com último dia inclusivo; lote por nota e tipo de crédito, dividido quando o teto corta; estorno proporcional entre parte normal e retida; saldo negativo absorvido pelo próximo crédito liberado; ajuste positivo cria lote de 180 dias e negativo consome FIFO; cancelamento de nota com resgate devolve aos mesmos lotes; devolução com resgate proporcional ao vProd devolvido; casamento de item devolvido por cProd; cancelamento antes da nota fica guardado; sem verificação de assinatura digital na Fase 1; data de ativação da exportação = última ativação; prestador que entra na lista de exclusão gera só alerta; CNPJ alfanumérico aceito. |
+
+## 14. Fases seguintes (visão)
+
+Registro de direção, sem compromisso de escopo ou prazo. Cada fase ganha SPEC própria antes de começar.
+
+### Fase 2 — CDC Indica
+
+- Página pública de busca de prestadores por serviço e por bairro ou município.
+- Só aparecem prestadores ativos, revalidados e com consentimento de vitrine (R1.9). Selos só de certificações verificadas (R1.8).
+- Contato pelo sistema (botão de WhatsApp intermediado), para medir os contatos e vincular o cliente ao prestador com origem "vitrine". A regra de bônus para esse vínculo está na questão 12.
+- Avaliações só de clientes que foram vinculados ou compraram, com moderação da gestão.
+- Ranking com critérios a definir (nível, capacitação concluída, avaliações).
+- Também entram na Fase 2 o acúmulo para clientes CPF e o envio real por WhatsApp, já previstos.
+
+### Fase 3 — CDC Serviços
+
+- Serviços próprios da CDC (instalação, montagem e outros) no mesmo catálogo de profissões, com agendamento e garantia.
+- Exige definição fiscal (ISS e NFS-e de Manaus) e trabalhista (equipe própria ou parceiros).
+
+### Capacitação (evolução)
+
+- Trilhas completas, certificados de conclusão e parcerias de conteúdo. A conclusão pode contar para ranking e selos.
+- Certificado da CDC não substitui as capacitações obrigatórias das normas regulamentadoras (NR-10, NR-35) nem o registro em conselho.
+
+## 15. Frente jurídica (escopo inicial para o especialista)
+
+Ponto de partida para a pesquisa e a redação dos documentos (questão 16). Não é parecer jurídico; cada item precisa ser validado e aprofundado por advogado.
+
+- **Código de Defesa do Consumidor (Lei 8.078/1990):** oferta vincula (arts. 30 e 35), então o benefício anunciado na página pública e no regulamento precisa ser cumprido; informação clara (arts. 6º, III, e 31); contrato de adesão legível e com cláusulas limitativas em destaque (art. 54, §§ 3º e 4º); cláusulas abusivas (art. 51), em especial alteração unilateral depois da adesão (inciso XIII) e exclusão de responsabilidade (inciso I) — afeta a decisão de poder mudar critérios a qualquer momento; responsabilidade solidária por representantes autônomos e na cadeia de fornecimento (arts. 7º, parágrafo único, 25 e 34) — afeta o CDC Indica.
+- **Código Civil:** contrato de adesão (arts. 423 e 424) e boa-fé (art. 422). Natureza da relação com o prestador: a indicação recompensada em bônus não pode se confundir com corretagem (arts. 722 a 729), agência (arts. 710 a 721), representação comercial (Lei 4.886/1965) ou vínculo de emprego.
+- **LGPD (Lei 13.709/2018):** base legal por finalidade (execução do contrato do programa; consentimento para ofertas e vitrine; legítimo interesse para prevenção de fraude — arts. 7º, 8º e 10); o controlador precisa provar o consentimento (art. 8º, § 2º), o que afeta o aceite feito no caixa; direitos do titular (art. 18); crianças e adolescentes (art. 14), o que pede idade mínima no regulamento; encarregado (art. 41); segurança e comunicação de incidentes (arts. 46 e 48); transferência internacional se a hospedagem for fora do Brasil (art. 33).
+- **Marco Civil da Internet (Lei 12.965/2014):** guarda dos registros de acesso do portal e da página pública (art. 15) e termos de uso.
+- **Comércio eletrônico (Decreto 7.962/2013):** informações e atendimento nas páginas online.
+- **Promoções comerciais (Lei 5.768/1971):** o desconto do programa não depende de sorte, mas qualquer sorteio, vale-brinde ou concurso dentro do clube precisa de autorização do Ministério da Fazenda.
+- **Tributário:** bônus como desconto incondicional na nota (questão 10; base do ICMS, LC 87/1996, art. 13, § 1º); nenhum pagamento em dinheiro ao prestador; na Fase 3, ISS e NFS-e.
+- **Profissões e conteúdos:** conselhos para os selos (CREA — Lei 5.194/1966; CFT/CRT — Lei 13.639/2018; CAU — Lei 12.378/2010); capacitação da CDC não pode ser apresentada como cumprimento de NR-10 ou NR-35 sem seguir essas normas; direitos autorais e de imagem dos conteúdos (Lei 9.610/1998).
+- **Documentos a elaborar:** regulamento do Clube CDC (prestador e cliente indicado); termo de adesão do prestador, com código de conduta e hipóteses de suspensão; termos de uso do portal e da página pública; política de privacidade; termo de consentimento de vitrine; autorização de uso de imagem para os conteúdos de capacitação; na Fase 3, contratos de serviço.
