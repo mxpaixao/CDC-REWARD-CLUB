@@ -28,7 +28,8 @@ model Store {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  users InternalUser[]
+  users    InternalUser[]
+  invoices Invoice[]
 
   @@map("store")
 }
@@ -148,8 +149,10 @@ model ImportBatch {
   createdById String?      @map("created_by_id") @db.Uuid
   createdBy   InternalUser? @relation(fields: [createdById], references: [id])
 
-  products   Product[]
-  exclusions ExclusionEntry[]
+  products      Product[]
+  exclusions    ExclusionEntry[]
+  invoices      Invoice[]
+  cancellations InvoiceCancellation[]
 
   @@index([type, startedAt(sort: Desc)])
   @@map("import_batch")
@@ -205,4 +208,117 @@ model ExclusionEntry {
   @@index([document])
   @@index([source])
   @@map("exclusion_entry")
+}
+
+// ---------------------------------------------------------------------------
+// Etapa 3 — Notas fiscais
+// ---------------------------------------------------------------------------
+
+enum InvoiceDirection {
+  OUT
+  IN
+}
+
+enum InvoiceStatus {
+  AUTHORIZED
+  CANCELED
+}
+
+/// Nota fiscal importada (SPEC 5 e 7). Única pela chave de acesso (regra 3).
+/// Imutável depois de gravada, exceto situação e data de cancelamento (trigger na migração).
+model Invoice {
+  id                    String           @id @default(uuid()) @db.Uuid
+  /// Chave de acesso, 44 posições.
+  accessKey             String           @unique @map("access_key")
+  /// 55 (NF-e) ou 65 (NFC-e).
+  model                 Int
+  series                String
+  number                String
+  /// tpNF: OUT = saída (1), IN = entrada (0).
+  direction             InvoiceDirection
+  /// finNFe: 1 normal, 2 complementar, 3 ajuste, 4 devolução.
+  purpose               Int
+  /// PRODUCTION ou HOMOLOGATION (tpAmb).
+  environment           String
+  issuedAt              DateTime         @map("issued_at") @db.Timestamptz(3)
+  storeId               String           @map("store_id") @db.Uuid
+  store                 Store            @relation(fields: [storeId], references: [id])
+  /// CPF ou CNPJ normalizado; nulo quando o cliente não se identificou.
+  recipientDocument     String?          @map("recipient_document")
+  recipientDocumentType String?          @map("recipient_document_type")
+  totalCents            Int              @map("total_cents")
+  discountCents         Int              @map("discount_cents")
+  /// Códigos tPag.
+  paymentTypes          String[]         @map("payment_types")
+  /// infCpl
+  additionalInfo        String?          @map("additional_info")
+  /// refNFe — numa devolução, a chave da venda devolvida.
+  referencedKeys        String[]         @map("referenced_keys")
+  itemCount             Int              @map("item_count")
+  /// Itens só são guardados quando a nota identifica o cliente (ou é devolução).
+  itemsStored           Boolean          @map("items_stored")
+  status                InvoiceStatus    @default(AUTHORIZED)
+  canceledAt            DateTime?        @map("canceled_at") @db.Timestamptz(3)
+  authorizationStatus   Int              @map("authorization_status")
+  authorizationProtocol String?          @map("authorization_protocol")
+  importBatchId         String           @map("import_batch_id") @db.Uuid
+  importBatch           ImportBatch      @relation(fields: [importBatchId], references: [id])
+  /// Caminho do XML bruto no armazenamento restrito (R13.4); nulo para nota sem cliente identificado.
+  rawXmlPath            String?          @map("raw_xml_path")
+  rawSha256             String?          @map("raw_sha256")
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  items InvoiceItem[]
+
+  @@index([recipientDocument, issuedAt])
+  @@index([storeId, issuedAt])
+  @@index([referencedKeys], type: Gin)
+  @@map("invoice")
+}
+
+/// Item da nota (SPEC 5). A faixa é congelada na importação (R5.2).
+model InvoiceItem {
+  id            String     @id @default(uuid()) @db.Uuid
+  invoiceId     String     @map("invoice_id") @db.Uuid
+  invoice       Invoice    @relation(fields: [invoiceId], references: [id])
+  itemNumber    Int        @map("item_number")
+  /// cProd
+  productCode   String     @map("product_code")
+  description   String
+  cfop          String
+  /// qCom
+  quantity      Decimal    @db.Decimal(15, 4)
+  /// vProd
+  grossCents    Int        @map("gross_cents")
+  /// vDesc
+  discountCents Int        @map("discount_cents")
+  /// vProd − vDesc (R5.1)
+  baseCents     Int        @map("base_cents")
+  band          MarginBand
+  /// false quando o produto não estava cadastrado: faixa D e relatório "itens sem faixa".
+  productFound  Boolean    @map("product_found")
+
+  @@unique([invoiceId, itemNumber])
+  @@index([productCode])
+  @@map("invoice_item")
+}
+
+/// Evento de cancelamento (110111 ou 110112). Pode chegar antes da nota: fica pendente até a nota ser importada.
+model InvoiceCancellation {
+  id            String      @id @default(uuid()) @db.Uuid
+  accessKey     String      @unique @map("access_key")
+  eventType     String      @map("event_type")
+  sequence      Int
+  eventAt       DateTime    @map("event_at") @db.Timestamptz(3)
+  protocol      String?
+  /// Chave da NFC-e substituta (110112).
+  substituteKey String?     @map("substitute_key")
+  /// Quando o cancelamento foi aplicado à nota; nulo enquanto a nota não chegou.
+  appliedAt     DateTime?   @map("applied_at") @db.Timestamptz(3)
+  importBatchId String      @map("import_batch_id") @db.Uuid
+  importBatch   ImportBatch @relation(fields: [importBatchId], references: [id])
+  rawXmlPath    String?     @map("raw_xml_path")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("invoice_cancellation")
 }

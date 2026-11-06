@@ -22,12 +22,15 @@
     "db:reset": "prisma migrate reset --force",
     "postinstall": "prisma generate",
     "import:csv": "tsx scripts/import-csv.ts",
-    "synthetic:csv": "tsx scripts/generate-synthetic-csv.ts"
+    "synthetic:csv": "tsx scripts/generate-synthetic-csv.ts",
+    "synthetic:xml": "tsx scripts/generate-synthetic-xml.ts",
+    "import:xml": "tsx scripts/import-xml.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "decimal.js": "^10.6.0",
+    "fast-xml-parser": "5.11.2",
     "luxon": "^3.7.2",
     "next": "^16.4.5",
     "pg": "^8.23.1",

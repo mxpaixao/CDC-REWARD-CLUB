@@ -105,7 +105,9 @@ Copie `.env.example` para `.env` antes de tudo.
 | Só testes com banco | `npm run test:integration` (usa `TEST_DATABASE_URL`, apagado a cada execução) |
 | Gerar CSVs sintéticos (lojas, produtos, exclusão) | `npm run synthetic:csv` → `var/synthetic/` |
 | Importar CSV auxiliar | `npm run import:csv -- --tipo lojas\|produtos\|exclusao --arquivo <csv> --usuario <e-mail admin> [--modo completo --origem RH] [--simular]` |
+| Gerar XMLs sintéticos (homologação) | `npm run synthetic:xml -- [--inicio AAAA-MM-DD] [--dias 3] [--saida var/inbox]` |
+| Importar XMLs (rodada manual do job) | `npm run import:xml -- --usuario <e-mail admin> [--pasta <pasta>] [--manter]` |
 | Checagem de tipos | `npm run typecheck` |
 | Build de produção | `npm run build` |
 
-A preencher nas próximas etapas: gerar e importar XMLs sintéticos (etapa 3), rodar cada job manualmente (etapa 8).
+A preencher nas próximas etapas: rodar cada job manualmente (etapa 8).

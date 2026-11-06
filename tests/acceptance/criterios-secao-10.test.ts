@@ -12,8 +12,9 @@
  */
 import { describe, it } from "vitest";
 
-describe("Etapa 3 — Notas", () => {
-  it.todo("19. Idempotência: o mesmo XML importado duas vezes → uma nota e um crédito");
+// Critério 19: parte da nota em c19-idempotencia.db.test.ts (etapa 3); parte do crédito na etapa 4.
+describe("Etapa 4 — Motor e ledger (continuação do critério 19)", () => {
+  it.todo("19. Idempotência: o mesmo XML importado duas vezes → um crédito");
 });
 
 describe("Etapa 4 — Motor e ledger", () => {

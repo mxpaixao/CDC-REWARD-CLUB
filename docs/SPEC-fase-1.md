@@ -255,7 +255,7 @@ Implementar a leitura atrás de uma interface `SalesSource`, com `XmlFolderSourc
 | Dado | Caminho no XML (layout 4.00) |
 | --- | --- |
 | Chave de acesso | atributo `Id` de `infNFe` sem o prefixo `NFe`, ou `protNFe/infProt/chNFe` |
-| Autorização | `protNFe/infProt/cStat` = 100 |
+| Autorização | `protNFe/infProt/cStat` = 100 ou 150 (autorizado fora de prazo) |
 | Modelo | `ide/mod` |
 | Tipo | `ide/tpNF` (1 saída, 0 entrada) |
 | Finalidade | `ide/finNFe` (1 normal, 4 devolução) |
@@ -267,12 +267,14 @@ Implementar a leitura atrás de uma interface `SalesSource`, com `XmlFolderSourc
 | Totais | `total/ICMSTot/vNF`, `total/ICMSTot/vDesc` |
 | Pagamento | `pag/detPag/tPag` |
 | Observação | `infAdic/infCpl` |
-| Cancelamento | `procEventoNFe/evento/infEvento` com `tpEvento` 110111 e `chNFe` |
+| Cancelamento | `procEventoNFe/evento/infEvento` com `tpEvento` 110111 (cancelamento) ou 110112 (cancelamento por substituição da NFC-e) e `chNFe`; retorno `cStat` 135 ou 155 |
 
 Regras de importação:
 
 - Idempotente pela chave; reimportar o mesmo arquivo não muda nada.
-- Nota sem destinatário identificado é registrada só para a métrica de vendas identificadas.
+- Nota sem destinatário identificado é registrada só para a métrica de vendas identificadas (cabeçalho, sem itens nem XML).
+- Nota e evento de homologação (`tpAmb` 2) são recusados em produção; o gerador sintético só produz homologação.
+- O CFOP de cada item é guardado (questão 17).
 - XML inválido, não autorizado ou de outra empresa vai para os erros do lote.
 - Cada lote mostra: lidas, novas, repetidas, cancelamentos, devoluções, erros.
 - O projeto traz um gerador de XMLs sintéticos válidos para testes, com CPFs fictícios válidos.
@@ -393,6 +395,8 @@ Cada etapa termina com testes passando e o README atualizado.
 | 14 | Modelo de ganho do CDC Indica (sugestão para começar: gratuito para o prestador, ganho na venda de material) | Comercial |
 | 15 | Hospedagem dos vídeos de capacitação e parcerias de conteúdo (fabricantes, SENAI-AM) | Comercial e CPD |
 | 16 | Pesquisa jurídica completa e elaboração dos documentos do programa, com especialista; escopo inicial na seção 15 | Diretoria e Jurídico |
+| 17 | CFOPs que contam como venda para o bônus (sugestão: só os de venda, ex.: 5101, 5102, 5403, 5405, 6102; bonificação, remessa e transferência ficam fora) | Contabilidade e CPD |
+| 18 | Devolução emitida pelo próprio cliente com CNPJ (emitente não é a loja): hoje vai para os erros | SHX e Contabilidade |
 
 ## 13. Registro de decisões
 
@@ -421,6 +425,7 @@ Cada etapa termina com testes passando e o README atualizado.
 | 06/11/2026 | Aba Capacitação simples no portal do prestador (etapa 9), com gestão dos conteúdos no painel (etapa 10). O braço de capacitação evolui depois. |
 | 06/11/2026 | CDC Indica registrado como Fase 2 e CDC Serviços como Fase 3 (seção 14). |
 | 06/11/2026 | Frente jurídica: pesquisa completa e elaboração do regulamento, termos e contratos com apoio especializado (questão 16); escopo inicial na seção 15. |
+| 06/11/2026 | Etapa 3 — leituras técnicas da seção 7 (a confirmar): `cStat` 150 também é nota autorizada; evento 110112 (cancelamento por substituição) também cancela, para a nota substituída e a substituta não gerarem bônus em dobro; notas de homologação recusadas em produção; nota sem cliente identificado guarda só o cabeçalho; XML bruto guardado só de nota identificada, devolução e cancelamento; CFOP guardado em cada item. |
 | 06/11/2026 | Adotados sem objeção: fim do vínculo por instante (início + 120 dias, mesma hora); validade com último dia inclusivo; lote por nota e tipo de crédito, dividido quando o teto corta; estorno proporcional entre parte normal e retida; saldo negativo absorvido pelo próximo crédito liberado; ajuste positivo cria lote de 180 dias e negativo consome FIFO; cancelamento de nota com resgate devolve aos mesmos lotes; devolução com resgate proporcional ao vProd devolvido; casamento de item devolvido por cProd; cancelamento antes da nota fica guardado; sem verificação de assinatura digital na Fase 1; data de ativação da exportação = última ativação; prestador que entra na lista de exclusão gera só alerta; CNPJ alfanumérico aceito. |
 
 ## 14. Fases seguintes (visão)

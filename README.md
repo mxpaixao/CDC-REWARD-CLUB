@@ -14,8 +14,9 @@ Fase 1 (piloto do trilho Prestador), construída por etapas (SPEC seção 11).
 | --- | --- |
 | 1. Base | **concluída** |
 | 2. Cadastros auxiliares | **concluída** |
-| 3. Notas | próxima |
-| 4–11 | pendentes |
+| 3. Notas | **concluída** (critério 19: parte da nota; a do crédito fecha na etapa 4) |
+| 4. Motor e ledger | próxima |
+| 5–11 | pendentes |
 
 Os 24 critérios de aceite da SPEC seção 10 já estão em `tests/acceptance/criterios-secao-10.test.ts`
 como pendentes, cada um marcado com a etapa que o fecha.
@@ -34,6 +35,8 @@ npm run dev
 ```
 
 O seed cria lojas, usuários, parâmetros, produtos e lista de exclusão, todos sintéticos.
+Para ter notas: `npm run synthetic:xml -- --saida var/inbox` e depois
+`npm run import:xml -- --usuario admin@exemplo.test`.
 
 Acesse http://localhost:3000 e entre com um dos usuários sintéticos — a senha é o `SEED_PASSWORD` do `.env`:
 
@@ -89,6 +92,22 @@ npm run test:integration  # com banco: apaga e recria TEST_DATABASE_URL (precisa
   de exclusão sintética.
 - O relatório **"itens sem faixa"** depende dos itens de nota e entra na etapa 3.
 
+## O que a etapa 3 entrega
+
+- **Leitura de XML** de NFC-e e NF-e (layout 4.00) e dos eventos de cancelamento
+  (`src/infra/sales-source/nfe-xml.ts`), com validação da chave de acesso (inclusive CNPJ
+  alfanumérico), da autorização e da loja emitente; XML com DOCTYPE é recusado.
+- **Fonte de vendas atrás de interface** (`SalesSource`): pasta monitorada e upload manual. Uma
+  futura API do SHX entra sem mudar o motor.
+- **Importador idempotente** pela chave (`src/application/imports/invoice-import.ts`): uma transação
+  por documento, cancelamento antes ou depois da nota, cancelamento por substituição, devoluções
+  ligadas à venda, faixa congelada no item, lote com totais e mensagens; notas imutáveis no banco.
+- **XML bruto** guardado em armazenamento restrito (permissões 0700/0600).
+- **Gerador de XMLs sintéticos** em homologação (`npm run synthetic:xml`) e importação manual
+  (`npm run import:xml`, `POST /api/imports/xml`).
+- **Relatório "itens sem faixa"** (`GET /api/reports/items-without-band`).
+- Detalhes para o CPD em [`docs/importacao-notas.md`](docs/importacao-notas.md).
+
 ## Estrutura
 
 ```
@@ -104,5 +123,5 @@ tests/
   unit/          domínio
   integration/   com banco
   acceptance/    critérios da SPEC seção 10
-docs/            SPEC e layouts de importação
+docs/            SPEC, layouts de CSV e importação de notas
 ```
